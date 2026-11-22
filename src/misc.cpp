@@ -25,6 +25,7 @@
 #include <cerrno>
 #include <climits>
 #include <numeric>
+#include <mutex>
 #include <random>
 #include <filesystem>
 #include <sys/stat.h>
@@ -947,7 +948,7 @@ Anope::string Anope::LastError()
 }
 
 /* Northfire: the version shown to people. Built by Kyle Bargman */
-#define NORTHFIRE_VERSION "1.0"
+#define NORTHFIRE_VERSION "1.1"
 Anope::string Anope::DisplayVersion()
 {
 	return "Northfire Services " NORTHFIRE_VERSION " (based on Anope " + Anope::ToString(VERSION_MAJOR) + "." + Anope::ToString(VERSION_MINOR) + "." + Anope::ToString(VERSION_PATCH) + ")";
@@ -1098,10 +1099,14 @@ Anope::string Anope::Random(size_t len)
 
 int Anope::RandomNumber()
 {
+	/* Northfire: straight from the system's secure source (/dev/urandom or getrandom()).
+	 * A Mersenne Twister seeded with 32 bits made reset and confirmation codes guessable
+	 * by anyone who saw a few of them. Built by Kyle Bargman */
+	static std::mutex lock;
 	static std::random_device device;
-	static std::mt19937 engine(device());
-	static std::uniform_int_distribution<int> dist(INT_MIN, INT_MAX);
-	return dist(engine);
+	std::lock_guard<std::mutex> guard(lock);
+	static_assert(sizeof(std::random_device::result_type) >= sizeof(int));
+	return static_cast<int>(device());
 }
 
 // Implementation of https://en.wikipedia.org/wiki/Levenshtein_distance

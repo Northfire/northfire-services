@@ -2,7 +2,7 @@
 """Northfire Services integration tests: real IRC clients against UnrealIRCd + services.
 
 Built by Kyle Bargman, 2026-11-22. Runs inside the test container (see run-tests.sh).
-Usage: irc_test.py authguard | branding | tlsonly | upgrade | upgrade-again | rpc
+Usage: irc_test.py authguard | branding | tlsonly | upgrade | upgrade-again | rpc | security | twostep | twostep-again
 """
 
 import base64
@@ -321,6 +321,187 @@ def test_rpc():
     st, r = rpc("anope.checkCredentials", ["Fay", "faypass12345"], xff="198.51.100.9")
     assert r.get("result", {}).get("account") == "Fay", r
     ok("...but not other forum visitors (counted by X-Forwarded-For)")
+
+
+def mail_log():
+    """Everything services has emailed so far (tests/docker/fake-sendmail.sh). Built by Kyle Bargman"""
+    time.sleep(1)  # mail is sent from a thread
+    try:
+        with open("/work/test/mail.log") as f:
+            return f.read()
+    except OSError:
+        return ""
+
+
+def test_security():
+    """nf_security: notices for account changes, SESSIONS and SIGNOUT. Built by Kyle Bargman"""
+    print("security notices and sessions:")
+    register("Hank", "hankpass1234")
+    a = Client("Hank")
+    a.ns("IDENTIFY hankpass1234", r"Password accepted")
+    b = Client("HankPhone")
+    b.ns("IDENTIFY Hank hankpass1234", r"Password accepted")
+
+    a.ns("SET PASSWORD hanknewpass99", r"changed|set to")
+    note = " ".join(b.notices_from("NickServ", 3))
+    assert "Security notice" in note and "password" in note and "Hank" in note, note
+    ok("a password change is announced to the account's other connections")
+    mails = mail_log()
+    assert 'To: "Hank" <hank@test.local>' in mails and "your password was changed" in mails, mails[-600:]
+    ok("...and emailed to the account's address")
+
+    a.ns("SET EMAIL hank2@test.local", r"changed|set to|confirm")
+    note = " ".join(b.notices_from("NickServ", 3))
+    assert "email address" in note and "hank@test.local" in note and "hank2@test.local" in note, note
+    mails = mail_log()
+    tos = set()
+    for block in re.split(r"(?=From: )", mails):
+        if "your email address was changed" in block:
+            tos.update(re.findall(r"^To: .*<(.*)>", block, re.M))
+    assert tos == {"hank@test.local", "hank2@test.local"}, tos
+    ok("an email change is announced, and the OLD address is emailed too")
+
+    b.send("PRIVMSG MemoServ :READ LAST")
+    memo = " ".join(l for l in b.lines(3) if l.startswith(":MemoServ!"))
+    assert "Security notice" in memo, memo
+    ok("the notices are also kept as memos")
+
+    a.send("PRIVMSG NickServ :SESSIONS")
+    lines = " ".join(a.notices_from("NickServ", 3))
+    assert "HankPhone" in lines and "(this connection)" in lines and "TLS" in lines, lines
+    ok("SESSIONS lists both connections")
+
+    a.ns("SIGNOUT ALL", r"Signed out")
+    b.wait(r"signed out of your account")
+    ok("SIGNOUT ALL signs out the other connection")
+    b.ns("SESSIONS", r"must be logged into an account")
+    ok("...which is no longer signed in")
+    a.quit()
+    b.quit()
+
+
+def totp(key32, step):
+    """RFC 6238 code for one 30-second step, as an authenticator app would show it."""
+    import hashlib
+    import hmac
+    import struct
+    key = base64.b32decode(key32 + "=" * (-len(key32) % 8))
+    mac = hmac.new(key, struct.pack(">Q", step), hashlib.sha1).digest()
+    off = mac[19] & 15
+    return "%06d" % ((struct.unpack(">I", mac[off:off + 4])[0] & 0x7FFFFFFF) % 1000000)
+
+
+def test_twostep():
+    """nf_twostep: authenticator-app codes. Built by Kyle Bargman"""
+    print("two-step sign-in:")
+    op = oper()
+    register("Ivy", "ivypass12345")
+    a = Client("Ivy")
+    a.ns("IDENTIFY ivypass12345", r"Password accepted")
+    a.ns("2FA", r"is \x02?off")
+    a.send("PRIVMSG NickServ :2FA ON")
+    got = " ".join(a.notices_from("NickServ", 3))
+    key = re.search(r"secret=([A-Z2-7]+)", got).group(1)
+    assert len(key) == 32, key
+    ok("2FA ON gives a 160-bit key and an otpauth link")
+    a.ns("2FA CONFIRM 000000" if totp(key, int(time.time()) // 30) != "000000" else "2FA CONFIRM 111111", r"isn't right")
+    step = int(time.time()) // 30
+    a.send(f"PRIVMSG NickServ :2FA CONFIRM {totp(key, step)}")
+    got = " ".join(a.notices_from("NickServ", 3))
+    assert "now \x02on" in got, got
+    codes = re.findall(r"\b[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}\b", got)
+    assert len(codes) == 10, codes
+    ok("2FA CONFIRM with the app's code turns it on and shows 10 recovery codes")
+    last = step
+
+    c = Client("IvyLaptop")
+    c.ns("IDENTIFY Ivy ivypass12345", r"two-step sign-in.*CODE")
+    ok("IDENTIFY with the right password asks for the code")
+    c.ns("SESSIONS", r"must be logged into an account")
+    ok("...and doesn't sign in yet")
+    last += 1
+    c.ns(f"CODE {totp(key, last)}", r"Code accepted")
+    ok("CODE with the app's next code signs in")
+    c.quit()  # the test network allows 3 connections per address, as omen does
+
+    d = Client("IvyTablet")
+    d.ns("IDENTIFY Ivy ivypass12345", r"two-step")
+    d.ns(f"CODE {totp(key, last)}", r"isn't right")
+    ok("a code can't be used twice")
+    d.ns(f"CODE {codes[0]}", r"Code accepted")
+    ok("a recovery code works instead")
+    note = " ".join(a.notices_from("NickServ", 2))
+    assert "recovery code was used" in note and "9" in note, note
+    ok("...and the owner is told (9 left)")
+    d.quit()
+
+    st, r = rpc("anope.checkCredentials", ["Ivy", "ivypass12345"], xff="198.51.100.20")
+    assert r.get("error", {}).get("code") == -32095, r
+    ok("the website gets -32095 without a code")
+    st, r = rpc("anope.checkCredentials", ["Ivy", "ivypass12345", "123456"], xff="198.51.100.20")
+    assert r.get("error", {}).get("code") == -32095, r
+    st, r = rpc("anope.checkCredentials", ["Ivy", "ivypass12345", codes[1]], xff="198.51.100.20")
+    assert r.get("result", {}).get("account") == "Ivy", r
+    ok("...and signs in with the code as a third parameter")
+    st, r = rpc("anope.checkCredentials", ["Ivy", "wrongpass", codes[2]], xff="198.51.100.21")
+    assert r.get("error", {}).get("code") == -32098, r
+    ok("a code doesn't help a wrong password")
+
+    s = Client("IvySasl", sasl=("Ivy", "ivypass12345"))
+    assert s.sasl_result == "904", s.sasl_result
+    s.wait(r"NickServ.*two-step sign-in.*CODE")
+    ok("SASL PLAIN is held, and the client is told to send CODE")
+    s.ns(f"CODE {codes[2]}", r"Code accepted")
+    ok("...and CODE finishes it")
+    s.quit()
+
+    e = Client("IvyThief")
+    e.ns("IDENTIFY Ivy ivypass12345", r"two-step")
+    for guess in ("111111", "222222", "333333", "444444"):
+        e.ns(f"CODE {guess}", r"isn't right")
+    e.ns("CODE 555555", r"isn't right")
+    note = " ".join(a.notices_from("NickServ", 2))
+    assert "they know your password" in note, note
+    ok("five wrong codes tell the owner their password is known")
+    e.ns("IDENTIFY Ivy ivypass12345", r"Too many wrong")
+    ok("...and codes are paused for the account")
+    e.quit()
+
+    op.ns("2FA RESET Ivy", r"now off")
+    note = " ".join(a.notices_from("NickServ", 2))
+    assert "turned off" in note and "staff" in note, note
+    ok("staff 2FA RESET turns it off, and the owner is told")
+    f = Client("IvyAgain")
+    f.ns("IDENTIFY Ivy ivypass12345", r"Password accepted")
+    ok("after RESET the password alone works again")
+    f.quit()
+    a.quit()
+    op.quit()
+
+    # Left on for twostep-again (after a restart)
+    register("Jo", "jopass123456")
+    j = Client("Jo")
+    j.ns("IDENTIFY jopass123456", r"Password accepted")
+    j.send("PRIVMSG NickServ :2FA ON")
+    key = re.search(r"secret=([A-Z2-7]+)", " ".join(j.notices_from("NickServ", 3))).group(1)
+    j.ns(f"2FA CONFIRM {totp(key, int(time.time()) // 30)}", r"now \x02on")
+    j.quit()
+    with open("/work/jo.key", "w") as f:
+        f.write(key)
+    saved_pass("Jo")  # OperServ UPDATE saves the database
+
+
+def test_twostep_again():
+    """After a restart, two-step sign-in is still on. Built by Kyle Bargman"""
+    print("two-step sign-in after a restart:")
+    with open("/work/jo.key") as f:
+        key = f.read().strip()
+    c = Client("JoAgain")
+    c.ns("IDENTIFY Jo jopass123456", r"two-step")
+    ok("two-step sign-in is still on after a restart")
+    c.ns(f"CODE {totp(key, int(time.time()) // 30 + 1)}", r"Code accepted")
+    ok("...with the same key")
+    c.quit()
 
 
 if __name__ == "__main__":

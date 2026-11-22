@@ -24,6 +24,7 @@ enum
 	ERR_INVALID_PASSWORD = RPC::ERR_CUSTOM_START + 1,
 	ERR_ACCOUNT_SUSPENDED = RPC::ERR_CUSTOM_START + 2,
 	ERR_TOO_MANY_ATTEMPTS = RPC::ERR_CUSTOM_START + 3, // Northfire (nf_authguard)
+	ERR_CODE_NEEDED = RPC::ERR_CUSTOM_START + 4, // Northfire (nf_twostep): the code is missing or wrong
 
 	// Used by anope.identify
 	ERR_INVALID_USER = RPC::ERR_CUSTOM_START + 1,
@@ -85,7 +86,9 @@ private:
 			if (!rpcinterface || !client)
 				return;
 
-			if (IsBlocked())
+			if (IsBlocked() && GetRefusal() == "second-factor")
+				request.Error(ERR_CODE_NEEDED, "Two-step sign-in code needed");
+			else if (IsBlocked())
 				request.Error(ERR_TOO_MANY_ATTEMPTS, "Too many failed attempts");
 			else if (NickAlias::Find(GetAccount()))
 				request.Error(ERR_INVALID_PASSWORD, "Invalid password");
@@ -114,6 +117,8 @@ public:
 		}
 
 		auto *req = new RPCIdentifyRequest(this->owner, request, client, iface, username, password);
+		if (request.data.size() > 2)
+			req->SetSecondFactor(request.data[2]); // Northfire: the two-step code, if the account uses one. Built by Kyle Bargman
 		FOREACH_MOD(OnCheckAuthentication, (nullptr, req));
 		req->Dispatch();
 		return false;

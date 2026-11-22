@@ -229,6 +229,9 @@ class CoreExport IdentifyRequest
 	 * Built by Kyle Bargman */
 	bool blocked = false;
 	bool gated = false;
+	bool password_right = false;
+	Anope::string refusal, refusal_message;
+	Anope::string second_factor;
 
 	/* Northfire: asks OnIdentifyGate once; true if the attempt is refused. */
 	bool Gate();
@@ -285,6 +288,23 @@ public:
 
 	/** Northfire: whether the attempt succeeded. */
 	bool IsSuccess() const { return success; }
+
+	/** Northfire: whether the password was right (the attempt may still have been refused). */
+	bool IsPasswordRight() const { return password_right; }
+
+	/** Northfire: refuse this attempt from OnIdentifyGate or OnIdentifySecondFactor.
+	 * @param why A short reason for code to act on: "locked" or "second-factor".
+	 * @param message What to tell the person, or empty for the route's usual reply.
+	 * Built by Kyle Bargman
+	 */
+	void Refuse(const Anope::string &why, const Anope::string &message = "") { refusal = why; refusal_message = message; }
+	const Anope::string &GetRefusal() const { return refusal; }
+	const Anope::string &GetRefusalMessage() const { return refusal_message; }
+
+	/** Northfire: a code from an authenticator app sent with the password (RPC), checked by
+	 * OnIdentifySecondFactor. Built by Kyle Bargman */
+	void SetSecondFactor(const Anope::string &code) { second_factor = code; }
+	const Anope::string &GetSecondFactor() const { return second_factor; }
 
 	static void ModuleUnload(Module *m);
 };

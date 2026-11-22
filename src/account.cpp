@@ -49,11 +49,25 @@ void IdentifyRequest::Release(Module *m)
 
 void IdentifyRequest::Success(Module *m, NickAlias *na)
 {
-	if (!success && !this->Gate())
+	if (success || blocked)
+		return;
+	password_right = true;
+	if (this->Gate())
+		return;
+
+	/* Northfire: a right password can still need a second step (nf_twostep). Built by Kyle Bargman */
+	EventReturn MOD_RESULT;
+	FOREACH_RESULT(OnIdentifySecondFactor, MOD_RESULT, (this, na));
+	if (MOD_RESULT == EVENT_STOP)
 	{
-		this->OnSuccess(na);
-		success = true;
+		blocked = true;
+		if (refusal.empty())
+			refusal = "second-factor";
+		return;
 	}
+
+	this->OnSuccess(na);
+	success = true;
 }
 
 /* Northfire: one place where a module may refuse a sign-in, whatever the
@@ -66,6 +80,8 @@ bool IdentifyRequest::Gate()
 		EventReturn MOD_RESULT;
 		FOREACH_RESULT(OnIdentifyGate, MOD_RESULT, (this));
 		blocked = MOD_RESULT == EVENT_STOP;
+		if (blocked && refusal.empty())
+			refusal = "locked";
 	}
 	return blocked;
 }

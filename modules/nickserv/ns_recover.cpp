@@ -133,6 +133,16 @@ public:
 
 	void OnFail() override
 	{
+		if (IsBlocked())
+		{
+			/* Northfire: locked out (nf_authguard) or two-step sign-in (nf_twostep). Built by Kyle Bargman */
+			Log(LOG_COMMAND, source, cmd) << "and was refused for " << GetAccount() << " (" << GetRefusal() << ")";
+			if (GetRefusal() == "second-factor")
+				source.Reply(_("This account uses two-step sign-in: sign in with \002IDENTIFY\002 and \002CODE\002 first, then use this command again."));
+			else
+				source.Reply(_("Too many failed sign-in attempts. Please wait a while and try again."));
+			return;
+		}
 		if (NickAlias::Find(GetAccount()) != NULL)
 		{
 			source.Reply(ACCESS_DENIED);

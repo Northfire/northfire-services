@@ -17,11 +17,29 @@ Stock Anope disconnects someone after a few wrong passwords in one session, but 
 - **Owners are told.** "There were 7 failed sign-in attempts on your account since you last signed in; the last was from 203.0.113.\*…"
 - **Staff are told.** Lockouts are logged (category `nf_authguard/alert`) to the log channel and globops. `/msg OperServ AUTHGUARD LIST` and `AUTHGUARD CLEAR <address|account|ALL>` let staff review and lift them.
 
+**Two-step sign-in (optional, per account)** ([nf_twostep](modules/northfire/nf_twostep.cpp))
+
+- `/msg NickServ 2FA ON` gives a key for any authenticator app (Google or Microsoft Authenticator, Aegis, 2FAS, 1Password, Bitwarden...). `2FA CONFIRM <code>` turns it on and shows ten single-use recovery codes.
+- After that, the right password isn't enough. NickServ asks for `CODE <code>` from the app, within five minutes and from the same address. A client's SASL sign-in is held the same way, and the client is told to send `CODE` once it has connected.
+- Client certificates (`NickServ CERT`, SASL EXTERNAL) still sign in without a code, so bouncers keep working.
+- Websites pass the code as a third parameter to `anope.checkCredentials`. Error `-32095` means a code is needed, or the one given was wrong.
+- An emailed password reset needs a code too, so an email account alone can't get round it.
+- Each code works once. Five wrong codes pause codes for the account for 15 minutes, and the owner is told that someone knows their password.
+- Staff can turn it off for someone who lost both their phone and their recovery codes (`2FA RESET <nick>`, privilege `nickserv/twostep/reset`).
+
+**Security notices** ([nf_security](modules/northfire/nf_security.cpp))
+
+- The owner is told when their password, email address or client certificates change, when an emailed reset code is used, and when their password is being guessed from many places.
+- Notices go to every connection signed in to the account, as a memo, and by email. After an email change the old address is told too, so a stolen account can't be quietly moved to a new address.
+- `/msg NickServ SESSIONS` lists every connection signed in to your account, and the addresses you've signed in from lately.
+- `SIGNOUT <nick>` or `SIGNOUT ALL` signs your other connections out. `ALL` also forgets the remembered addresses, so they lose their exemption from the lockouts.
+
 **Stronger password storage**
 
 - New passwords are hashed with Argon2id. It's set to 19 MiB and 2 passes, sized for a small server, because hashing runs on services' main thread.
 - Passwords from older Anope versions (sha256 and the rest) still work, and are re-hashed with Argon2id the next time each person signs in.
 - Password hashes and RPC tokens are compared in constant time.
+- Random codes (password resets, email confirmations) come from the system's secure random source. Anope used a Mersenne Twister seeded with 32 bits, so anyone who saw a few codes could predict the next ones.
 
 **Passwords only over TLS (optional)** ([nf_tlsonly](modules/northfire/nf_tlsonly.cpp))
 
@@ -36,9 +54,9 @@ When turned on, NickServ refuses IDENTIFY, REGISTER, RECOVER, GROUP and SET PASS
 
 **Smaller changes**
 
-- `/VERSION` and CTCP VERSION say "Northfire Services 1.0 (based on Anope 2.1.27)", and no longer reveal the build flags or which password hash is in use.
+- `/VERSION` and CTCP VERSION say "Northfire Services 1.1 (based on Anope 2.1.27)", and no longer reveal the build flags or which password hash is in use.
 - Upgrading from Anope 2.0 works whichever order the database modules are loaded in. `db_json` lets `db_flatfile` import when there's no JSON database yet.
-- Core: two new module events, `OnIdentifyGate` (refuse a sign-in attempt) and `OnIdentifyResult` (its outcome), for every route.
+- Core: new module events `OnIdentifyGate` (refuse a sign-in attempt), `OnIdentifySecondFactor` (ask for a second step once the password is right) and `OnIdentifyResult` (the outcome), for every route. Refusals carry a reason and a message, and `Mail::SendTo` mails any address.
 
 ## Install
 
@@ -72,6 +90,8 @@ Some modules were renamed in Anope 2.1 (for example, `unreal4` is now `unrealirc
 `tests/docker/run-tests.sh` builds Northfire Services and UnrealIRCd 6 in a Debian 12 container, then runs real IRC clients against them. It covers:
 
 - the lockouts on IDENTIFY, SASL and RPC
+- two-step sign-in on IDENTIFY, SASL and RPC: recovery codes, replayed codes, wrong-code pauses, staff reset, and surviving a restart
+- security notices (as notices, memos and email, including to the old address), SESSIONS and SIGNOUT
 - the staff commands, owner notices and log alerts
 - TLS-only mode
 - the version replies

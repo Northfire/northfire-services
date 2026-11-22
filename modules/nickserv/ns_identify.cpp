@@ -46,9 +46,16 @@ public:
 	{
 		if (source.GetUser() && IsBlocked())
 		{
-			/* Northfire (nf_authguard): too many failed attempts. Built by Kyle Bargman */
-			Log(LOG_COMMAND, source, cmd) << "and was refused signing in to account " << GetAccount() << " (locked out)";
-			source.Reply(_("Too many failed sign-in attempts. Please wait a while and try again."));
+			/* Northfire: refused by nf_authguard (too many failed attempts) or waiting for
+			 * nf_twostep's code. Built by Kyle Bargman */
+			if (GetRefusal() == "second-factor")
+				Log(LOG_COMMAND, source, cmd) << "with the right password for account " << GetAccount() << " (waiting for the two-step code)";
+			else
+				Log(LOG_COMMAND, source, cmd) << "and was refused signing in to account " << GetAccount() << " (" << GetRefusal() << ")";
+			if (!GetRefusalMessage().empty())
+				source.Reply(GetRefusalMessage());
+			else
+				source.Reply(_("Too many failed sign-in attempts. Please wait a while and try again."));
 			return;
 		}
 		if (source.GetUser())

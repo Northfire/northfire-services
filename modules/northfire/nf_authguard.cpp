@@ -30,11 +30,14 @@
  */
 
 #include "module.h"
+#include "nf_notify.h"
 
 #include <map>
 
 namespace
 {
+	using NFNotify::AddressKey;
+
 	/* Built by Kyle Bargman: failure count for one address or account */
 	struct Strikes final
 	{
@@ -52,29 +55,6 @@ namespace
 		time_t lock = 900;
 		time_t lock_max = 86400;
 	};
-
-	/* Built by Kyle Bargman: the address an attempt is counted under (IPv6 by /64) */
-	Anope::string AddressKey(const Anope::string &ip)
-	{
-		if (ip.empty())
-			return "unknown";
-		if (ip.find(':') == Anope::string::npos)
-			return ip;
-
-		sockaddrs a;
-		try
-		{
-			a.pton(AF_INET6, ip);
-		}
-		catch (const SocketException &)
-		{
-			return ip;
-		}
-		if (!a.valid())
-			return ip;
-		memset(&a.sa6.sin6_addr.s6_addr[8], 0, 8);
-		return a.addr() + "/64";
-	}
 
 	/* Built by Kyle Bargman: an address shown to the account owner (last part hidden) */
 	Anope::string ShownAddress(const Anope::string &key)
@@ -341,16 +321,19 @@ public:
 		};
 
 		auto *na = NickAlias::Find(req->GetAccount());
+		bool refuse;
 		if (!na)
-			return locked(ips, key) ? EVENT_STOP : EVENT_CONTINUE;
-
-		if (locked(pairs, na->nc->display + " " + key))
-			return EVENT_STOP;
-		if (IsTrusted(na->nc, key))
+			refuse = locked(ips, key);
+		else if (locked(pairs, na->nc->display + " " + key))
+			refuse = true;
+		else if (IsTrusted(na->nc, key))
+			refuse = false;
+		else
+			refuse = locked(ips, key) || locked(accounts, na->nc->display);
+		if (!refuse)
 			return EVENT_CONTINUE;
-		if (locked(ips, key) || locked(accounts, na->nc->display))
-			return EVENT_STOP;
-		return EVENT_CONTINUE;
+		req->Refuse("locked");
+		return EVENT_STOP;
 	}
 
 	void OnIdentifyResult(IdentifyRequest *req) override
@@ -391,8 +374,15 @@ public:
 
 		auto &s = accounts[na->nc->display];
 		if (time_t len = Strike(s, account_limits))
+		{
 			Log(this, "alert") << "Account " << na->nc->display << " is locked for " << Anope::Duration(len)
 				<< " (except from addresses it has used) after " << account_limits.limit << " failed attempts";
+			/* Built by Kyle Bargman: someone is guessing this account's password from many places */
+			NFNotify::Owner(na->nc, "someone is guessing your password",
+				"There were " + Anope::ToString(account_limits.limit) + " failed sign-in attempts on your account " + na->nc->display
+				+ " within " + Anope::Duration(account_limits.window) + ", the last from " + ShownAddress(key) + ". Signing in is paused for "
+				+ Anope::Duration(len) + ", except from addresses you have used before. If you use a weak password, change it with /msg NickServ SET PASSWORD.");
+		}
 
 		/* For the owner's next sign-in */
 		unsigned count = 0;
@@ -404,6 +394,17 @@ public:
 				count = Anope::Convert<unsigned>(first, 0);
 		}
 		missed.Set(na->nc, Anope::ToString(count + 1) + " " + key + " " + Anope::ToString(Anope::CurTime));
+	}
+
+	void OnNickIdentify(User *u) override
+	{
+		/* Built by Kyle Bargman: every finished sign-in (two-step codes and certificates
+		 * too, but not registering) makes its address one the owner uses */
+		auto *na = NickAlias::Find(u->nick);
+		if (na && na->nc == u->Account() && na->registered == Anope::CurTime)
+			return;  /* just registered */
+		if (u->Account())
+			Trust(u->Account(), AddressKey(u->ip.addr()));
 	}
 
 	void OnUserLogin(User *u) override

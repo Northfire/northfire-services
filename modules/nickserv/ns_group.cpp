@@ -76,6 +76,15 @@ public:
 		User *u = source.GetUser();
 
 		Log(LOG_COMMAND, source, cmd) << "and failed to group to " << target->nick;
+		if (IsBlocked())
+		{
+			/* Northfire: locked out (nf_authguard) or two-step sign-in (nf_twostep). Built by Kyle Bargman */
+			if (GetRefusal() == "second-factor")
+				source.Reply(_("That account uses two-step sign-in: sign in to it with \002IDENTIFY\002 and \002CODE\002 first, then use \002GROUP\002 again."));
+			else
+				source.Reply(_("Too many failed sign-in attempts. Please wait a while and try again."));
+			return;
+		}
 		if (NickAlias::Find(GetAccount()) != NULL)
 		{
 			source.Reply(PASSWORD_INCORRECT);

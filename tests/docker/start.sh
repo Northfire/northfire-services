@@ -11,6 +11,7 @@ rm -rf "$T" && mkdir -p "$T"
 cp -a "$RUN"/. "$T"/
 cp /src/northfire/conf/*.conf "$T/conf/"
 rm -f "$T/conf/"*.example.conf
+sed -i 's|#sendmailpath = .*|sendmailpath = "/src/tests/docker/fake-sendmail.sh"|' "$T/conf/anope.conf"
 cat > "$T/conf/secrets.conf" <<'EOT'
 uplink { host = "127.0.0.1"; ipv6 = no; ssl = no; port = 7000; password = "testlinkpass"; }
 define { name = "rpc.token"; value = "testrpctoken"; }

@@ -810,6 +810,15 @@ public:
 	 */
 	virtual void OnIdentifyResult(IdentifyRequest *req) ATTR_NOT_NULL(2) { throw NotImplementedException(); }
 
+	/** Northfire: called when the password was right and OnIdentifyGate allowed the attempt,
+	 * so a module can ask for a second step (a code from an authenticator app).
+	 * Built by Kyle Bargman
+	 * @param req The identify request (use Refuse() to say why)
+	 * @param na The nick the password was right for
+	 * @return EVENT_STOP to refuse the sign-in
+	 */
+	virtual EventReturn OnIdentifySecondFactor(IdentifyRequest *req, NickAlias *na) ATTR_NOT_NULL(2, 3) { throw NotImplementedException(); }
+
 	/** Called when a user does /ns update
 	 * @param u The user
 	 */
@@ -1111,6 +1120,7 @@ enum Implementation
 	I_OnCheckAuthentication,
 	I_OnIdentifyGate,
 	I_OnIdentifyResult,
+	I_OnIdentifySecondFactor,
 	I_OnCheckDelete,
 	I_OnCheckKick,
 	I_OnCheckModes,

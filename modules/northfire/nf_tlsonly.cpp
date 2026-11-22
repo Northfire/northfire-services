@@ -11,7 +11,7 @@
  * module
  * {
  *     name = "nf_tlsonly"
- *     commands = "nickserv/identify nickserv/register nickserv/recover nickserv/group nickserv/set/password"
+ *     commands = "nickserv/identify nickserv/register nickserv/recover nickserv/group nickserv/set/password nickserv/twostep"
  *     message = "Connect with TLS (port 6697) to use passwords; your password was not checked."
  * }
  *
@@ -39,7 +39,7 @@ public:
 		const auto &block = conf.GetModule(this);
 		commands.clear();
 		spacesepstream sep(block.Get<const Anope::string>("commands",
-			"nickserv/identify nickserv/register nickserv/recover nickserv/group nickserv/set/password"));
+			"nickserv/identify nickserv/register nickserv/recover nickserv/group nickserv/set/password nickserv/twostep"));
 		for (Anope::string c; sep.GetToken(c);)
 			commands.insert(c);
 		message = block.Get<const Anope::string>("message",

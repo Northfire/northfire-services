@@ -27,6 +27,10 @@ namespace Mail
 	extern CoreExport bool Send(NickCore *to, const Anope::string &subject, const Anope::string &message, const HeaderMap& hm = {});
 	extern CoreExport bool Validate(const Anope::string &email);
 
+	/** Northfire: send to an address that isn't (or is no longer) the account's, such as the
+	 * old address after an email change. Built by Kyle Bargman */
+	extern CoreExport bool SendTo(const Anope::string &name, const Anope::string &address, const Anope::string &subject, const Anope::string &message);
+
 	/* A email message being sent */
 	class Message final
 		: public Thread

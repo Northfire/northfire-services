@@ -16,7 +16,9 @@ fi
 X="docker exec --user nfire"
 $X nfsvc /src/tests/docker/build.sh
 $X nfsvc /src/tests/docker/start.sh >/dev/null
-$X nfsvc python3 /src/tests/docker/irc_test.py branding authguard rpc
+$X nfsvc python3 /src/tests/docker/irc_test.py branding authguard rpc security twostep
+$X -e KEEP=1 nfsvc /src/tests/docker/start.sh >/dev/null
+$X nfsvc python3 /src/tests/docker/irc_test.py twostep-again
 $X -e TLSONLY=1 nfsvc /src/tests/docker/start.sh >/dev/null
 $X nfsvc python3 /src/tests/docker/irc_test.py tlsonly
 $X nfsvc python3 /src/tests/docker/make_old_db.py /work/old-anope.db >/dev/null

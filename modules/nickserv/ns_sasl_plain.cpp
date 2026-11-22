@@ -76,7 +76,9 @@ public:
 
 		Anope::string accountstatus;
 		auto *na = NickAlias::Find(GetAccount());
-		if (!na)
+		if (IsBlocked())
+			accountstatus = GetRefusal() == "second-factor" ? "two-step " : "locked out "; // Northfire. Built by Kyle Bargman
+		else if (!na)
 			accountstatus = "nonexistent ";
 		else if (na->nc->HasExt("NS_SUSPENDED"))
 			accountstatus = "suspended ";

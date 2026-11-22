@@ -340,6 +340,18 @@ bool Mail::Send(NickCore *nc, const Anope::string &subject, const Anope::string 
 	return true;
 }
 
+/* Northfire: mail to any address (Mail::Send only reaches the account's own). Built by Kyle Bargman */
+bool Mail::SendTo(const Anope::string &name, const Anope::string &address, const Anope::string &subject, const Anope::string &message)
+{
+	const auto &b = Config->GetBlock("mail");
+	if (!b.Get<bool>("usemail") || b.Get<const Anope::string>("sendfrom").empty() || address.empty() || subject.empty() || message.empty())
+		return false;
+
+	auto *t = new Mail::Message(b.Get<const Anope::string>("sendfrom"), name, address, subject, message, {});
+	t->Start();
+	return true;
+}
+
 /**
  * Checks whether we have a valid, common email address.
  * This is NOT entirely RFC compliant, and won't be so, because I said
