@@ -54,6 +54,7 @@ ANOPE = [
      '\tdescription = "Services for the Northfire IRC Network"'),
     ('module { name = "inspircd" }', 'module { name = "unrealircd" }'),
     ('\tnetworkname = "LocalNet"', '\tnetworkname = "Northfire"'),
+    ('\tsendfrom = "LocalNet <services@example.com>"', '\tsendfrom = "Northfire <services@northfire.net>"'),
     # Logs: also to #services, and Northfire's sign-in alerts to the opers
     ('\ttarget = "services.log"\n', '\ttarget = "services.log #services"\n'),
     ('\t#target = "services.log #services"\n', ''),
