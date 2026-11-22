@@ -1,0 +1,39 @@
+# Northfire Services systemd unit. Built by Kyle Bargman, 2026-11-22.
+# Install: copy to /etc/systemd/system/, adjust User and the paths if not /home/nfire/northfire-services,
+# then: systemctl daemon-reload && systemctl enable --now northfire-services
+[Unit]
+Description=Northfire Services (IRC services, based on Anope)
+Documentation=https://github.com/Northfire/northfire-services
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nfire
+Group=nfire
+WorkingDirectory=/home/nfire/northfire-services
+ExecStart=/home/nfire/northfire-services/bin/anope --nofork
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=15
+UMask=0077
+
+# Sandboxing. (Not NoNewPrivileges: mail goes out through the MTA's setuid sendmail.)
+ProtectSystem=strict
+ReadWritePaths=/home/nfire/northfire-services/data /home/nfire/northfire-services/logs
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target
