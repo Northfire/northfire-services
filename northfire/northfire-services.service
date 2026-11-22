@@ -19,8 +19,8 @@ RestartSec=15
 UMask=0077
 
 # Sandboxing. (Not NoNewPrivileges: mail goes out through the MTA's setuid sendmail.)
-ProtectSystem=strict
-ReadWritePaths=/home/nfire/northfire-services/data /home/nfire/northfire-services/logs
+# /usr, /boot and /etc read-only; not "strict", which would stop the MTA writing its mail spool
+ProtectSystem=full
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes
