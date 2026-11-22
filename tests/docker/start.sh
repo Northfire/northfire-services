@@ -24,14 +24,16 @@ EOT
 [ -n "$DB" ] && cp "$DB" "$T/data/anope.db"
 [ -n "$KEEP" ] && cp -a /tmp/keep/. "$T/data/"
 
-U=/work/unreal
+U=/work/unreal; CTL=unrealircd; CONF=unrealircd.conf
+# Built by Kyle Bargman: or Northfire IRCd (run-tests.sh with NORTHFIRCD=...)
+[ -n "$NORTHFIRCD" ] && { U=/work/unreal-nf; CTL=northfircd; CONF=northfircd.conf; }
 mkdir -p $U/conf/tls
 [ -f $U/conf/tls/server.cert.pem ] || openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj /CN=irc.test.local \
 	-keyout $U/conf/tls/server.key.pem -out $U/conf/tls/server.cert.pem 2>/dev/null
-cp /src/tests/docker/unrealircd.conf $U/conf/unrealircd.conf
-$U/unrealircd stop >/dev/null 2>&1 || true
+cp /src/tests/docker/unrealircd.conf $U/conf/$CONF
+$U/$CTL stop >/dev/null 2>&1 || true
 pkill -f "$T/bin/anope" 2>/dev/null || true
-$U/unrealircd start >/tmp/unreal.log 2>&1 || { cat /tmp/unreal.log; exit 1; }
+$U/$CTL start >/tmp/unreal.log 2>&1 || { cat /tmp/unreal.log; exit 1; }
 "$T/bin/anope" --confdir="$T/conf" --dbdir="$T/data" --logdir="$T/logs" --moduledir="$T/modules" --localedir="$T/locale" >/tmp/anope.log 2>&1 || { cat /tmp/anope.log; tail -30 "$T"/logs/*; exit 1; }
 for i in $(seq 1 60); do
 	grep -q "Successfully linked\|synced" "$T"/logs/services.log.* 2>/dev/null && break
