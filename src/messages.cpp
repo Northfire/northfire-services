@@ -457,9 +457,8 @@ void Message::Topic::Run(MessageSource &source, const std::vector<Anope::string>
 
 void Message::Version::Run(MessageSource &source, const std::vector<Anope::string> &params, const Anope::map<Anope::string> &tags)
 {
-	Module *enc = ModuleManager::FindFirstOf(ENCRYPTION);
-	IRCD->SendNumeric(RPL_VERSION, source.GetSource(), "Anope-" + Anope::Version(), Me->GetName(), Anope::Format("%s -(%s) -- %s",
-		IRCD->GetProtocolName().c_str(), enc ? enc->name.c_str() : "(none)", Anope::VersionBuildString().c_str()));
+	/* Northfire: our name, and nothing about the build or password hashing */
+	IRCD->SendNumeric(RPL_VERSION, source.GetSource(), "NorthfireServices-" + Anope::Version(), Me->GetName(), Anope::DisplayVersion());
 }
 
 void Message::Whois::Run(MessageSource &source, const std::vector<Anope::string> &params, const Anope::map<Anope::string> &tags)

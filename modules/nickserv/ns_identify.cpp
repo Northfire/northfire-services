@@ -44,6 +44,13 @@ public:
 
 	void OnFail() override
 	{
+		if (source.GetUser() && IsBlocked())
+		{
+			/* Northfire (nf_authguard): too many failed attempts. Built by Kyle Bargman */
+			Log(LOG_COMMAND, source, cmd) << "and was refused signing in to account " << GetAccount() << " (locked out)";
+			source.Reply(_("Too many failed sign-in attempts. Please wait a while and try again."));
+			return;
+		}
 		if (source.GetUser())
 		{
 			bool accountexists = NickAlias::Find(GetAccount()) != NULL;

@@ -225,6 +225,17 @@ class CoreExport IdentifyRequest
 	bool dispatched = false;
 	bool success = false;
 
+	/* Northfire: set when a module (e.g. nf_authguard) refuses this attempt.
+	 * Built by Kyle Bargman */
+	bool blocked = false;
+	bool gated = false;
+
+	/* Northfire: asks OnIdentifyGate once; true if the attempt is refused. */
+	bool Gate();
+
+	/* Northfire: completes the request (OnFail when needed, OnIdentifyResult, delete). */
+	void Finish();
+
 	static std::set<IdentifyRequest *> Requests;
 
 protected:
@@ -266,6 +277,14 @@ public:
 	 * that have holds to finish.
 	 */
 	void Dispatch();
+
+	/** Northfire: whether a module refused this attempt (too many failed attempts).
+	 * A refused attempt fails even when the password was right.
+	 */
+	bool IsBlocked() const { return blocked; }
+
+	/** Northfire: whether the attempt succeeded. */
+	bool IsSuccess() const { return success; }
 
 	static void ModuleUnload(Module *m);
 };

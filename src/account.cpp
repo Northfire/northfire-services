@@ -44,30 +44,48 @@ void IdentifyRequest::Release(Module *m)
 {
 	holds.erase(m);
 	if (holds.empty() && dispatched)
-	{
-		if (!success)
-			this->OnFail();
-		delete this;
-	}
+		this->Finish();
 }
 
 void IdentifyRequest::Success(Module *m, NickAlias *na)
 {
-	if (!success)
+	if (!success && !this->Gate())
 	{
 		this->OnSuccess(na);
 		success = true;
 	}
 }
 
+/* Northfire: one place where a module may refuse a sign-in, whatever the
+ * route (IDENTIFY, SASL, RECOVER, GROUP, webcpanel, RPC). Built by Kyle Bargman */
+bool IdentifyRequest::Gate()
+{
+	if (!gated)
+	{
+		gated = true;
+		EventReturn MOD_RESULT;
+		FOREACH_RESULT(OnIdentifyGate, MOD_RESULT, (this));
+		blocked = MOD_RESULT == EVENT_STOP;
+	}
+	return blocked;
+}
+
+/* Northfire: finish the request and report the outcome. Built by Kyle Bargman */
+void IdentifyRequest::Finish()
+{
+	if (!success)
+	{
+		this->Gate();
+		this->OnFail();
+	}
+	FOREACH_MOD(OnIdentifyResult, (this));
+	delete this;
+}
+
 void IdentifyRequest::Dispatch()
 {
 	if (holds.empty())
-	{
-		if (!success)
-			this->OnFail();
-		delete this;
-	}
+		this->Finish();
 	else
 		dispatched = true;
 }
@@ -82,14 +100,14 @@ void IdentifyRequest::ModuleUnload(Module *m)
 		ir->holds.erase(m);
 		if (ir->holds.empty() && ir->dispatched)
 		{
-			if (!ir->success)
-				ir->OnFail();
-			delete ir;
+			ir->Finish();
 			continue;
 		}
 
 		if (ir->owner == m)
 		{
+			/* The module that made the request is going away: no result event,
+			 * as the request's own code is being unloaded. */
 			if (!ir->success)
 				ir->OnFail();
 			delete ir;

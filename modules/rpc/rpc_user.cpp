@@ -23,6 +23,7 @@ enum
 	// Used by anope.checkCredentials
 	ERR_INVALID_PASSWORD = RPC::ERR_CUSTOM_START + 1,
 	ERR_ACCOUNT_SUSPENDED = RPC::ERR_CUSTOM_START + 2,
+	ERR_TOO_MANY_ATTEMPTS = RPC::ERR_CUSTOM_START + 3, // Northfire (nf_authguard)
 
 	// Used by anope.identify
 	ERR_INVALID_USER = RPC::ERR_CUSTOM_START + 1,
@@ -84,7 +85,9 @@ private:
 			if (!rpcinterface || !client)
 				return;
 
-			if (NickAlias::Find(GetAccount()))
+			if (IsBlocked())
+				request.Error(ERR_TOO_MANY_ATTEMPTS, "Too many failed attempts");
+			else if (NickAlias::Find(GetAccount()))
 				request.Error(ERR_INVALID_PASSWORD, "Invalid password");
 			else
 				request.Error(ERR_INVALID_ACCOUNT, "Invalid account");

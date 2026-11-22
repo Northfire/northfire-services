@@ -211,7 +211,7 @@ private:
 	bool CompareToken(const RPC::Token &token, const Anope::string &rawtoken) const
 	{
 		if (token.token_hash.empty())
-			return token.token.equals_cs(rawtoken); // Plaintext token.
+			return Anope::TimingSafeEquals(token.token, rawtoken); // Plaintext token (Northfire: constant-time).
 
 		auto *service = Service::FindService("Encryption::Provider", token.token_hash);
 		if (!service)

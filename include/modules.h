@@ -799,6 +799,17 @@ public:
 	 */
 	virtual void OnCheckAuthentication(User *u, IdentifyRequest *req) ATTR_NOT_NULL(3) { throw NotImplementedException(); }
 
+	/** Northfire: called once per sign-in attempt, before it may succeed (or as it fails).
+	 * @param req The login request
+	 * @return EVENT_STOP to refuse the attempt, even with the right password
+	 */
+	virtual EventReturn OnIdentifyGate(IdentifyRequest *req) ATTR_NOT_NULL(2) { throw NotImplementedException(); }
+
+	/** Northfire: called when a sign-in attempt has finished, with its outcome.
+	 * @param req The login request (see IsSuccess() and IsBlocked())
+	 */
+	virtual void OnIdentifyResult(IdentifyRequest *req) ATTR_NOT_NULL(2) { throw NotImplementedException(); }
+
 	/** Called when a user does /ns update
 	 * @param u The user
 	 */
@@ -1098,6 +1109,8 @@ enum Implementation
 	I_OnChanSuspend,
 	I_OnChanUnsuspend,
 	I_OnCheckAuthentication,
+	I_OnIdentifyGate,
+	I_OnIdentifyResult,
 	I_OnCheckDelete,
 	I_OnCheckKick,
 	I_OnCheckModes,

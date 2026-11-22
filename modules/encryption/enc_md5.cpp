@@ -85,7 +85,7 @@ public:
 			return;
 
 		auto enc = "md5:" + Anope::Hex(md5provider.Encrypt(req->GetPassword()));
-		if (nc->pass.equals_cs(enc))
+		if (Anope::TimingSafeEquals(nc->pass, enc))
 		{
 			// If we are NOT the first encryption module we want to re-encrypt
 			// the password with the primary encryption method.

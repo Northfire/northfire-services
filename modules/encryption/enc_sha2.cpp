@@ -200,7 +200,7 @@ public:
 			Anope::Unhex(key_hex, key);
 
 			auto enc = Anope::Hex(provider->HMAC(key, req->GetPassword()));
-			valid = pass_hex.equals_cs(enc);
+			valid = Anope::TimingSafeEquals(pass_hex, enc);
 		}
 		else
 		{

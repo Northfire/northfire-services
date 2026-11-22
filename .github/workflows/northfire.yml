@@ -1,0 +1,36 @@
+# Northfire Services: the integration tests on every push, and release downloads on tags.
+# Built by Kyle Bargman
+name: Northfire tests and release
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build and run the integration tests (Debian 12 + UnrealIRCd 6)
+        run: tests/docker/run-tests.sh
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Source tarball
+        run: |
+          name="northfire-services-${GITHUB_REF_NAME#v}"
+          git archive --format=tar.gz --prefix="$name/" -o "$name.tar.gz" HEAD
+          sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          name="northfire-services-${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" "$name.tar.gz" "$name.tar.gz.sha256" \
+            --title "Northfire Services ${GITHUB_REF_NAME#v}" \
+            --notes "Northfire Services ${GITHUB_REF_NAME#v}, based on Anope 2.1.27. See the README for what's new and how to install."

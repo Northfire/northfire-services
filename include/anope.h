@@ -415,6 +415,11 @@ namespace Anope
 	/** Various methods to determine the Anope version running
 	 */
 	extern CoreExport string Version();
+
+	/** Northfire: the name and version people see, e.g.
+	 * "Northfire Services 1.0 (based on Anope 2.1.27)". Built by Kyle Bargman
+	 */
+	extern CoreExport string DisplayVersion();
 	extern CoreExport string VersionShort();
 	extern CoreExport string VersionBuildString();
 	extern CoreExport VersionComponent VersionMajor();
@@ -475,6 +480,11 @@ namespace Anope
 	 * @param dest The destination where the encrypted string is placed
 	 */
 	extern CoreExport bool Encrypt(const Anope::string &src, Anope::string &dest);
+
+	/** Northfire: compares two strings in time that doesn't depend on where they differ
+	 * (for password hashes). Built by Kyle Bargman
+	 */
+	extern CoreExport bool TimingSafeEquals(const Anope::string &a, const Anope::string &b);
 
 	/** Return the last error code
 	 * @return The error code

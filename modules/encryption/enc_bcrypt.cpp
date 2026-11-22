@@ -93,7 +93,7 @@ public:
 	bool Compare(const Anope::string &hash, const Anope::string &plain) override
 	{
 		auto newhash = BCryptContext::Hash(plain, hash);
-		return !newhash.empty() && hash.equals_cs(newhash);
+		return !newhash.empty() && Anope::TimingSafeEquals(hash, newhash);
 	}
 
 	std::unique_ptr<Encryption::Context> CreateContext() override

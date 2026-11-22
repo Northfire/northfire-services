@@ -333,15 +333,15 @@ bool Anope::Init(int ac, char **av)
 
 	if (GetCommandLineArgument("version", 'v'))
 	{
-		Log(LOG_TERMINAL) << "Anope-" << Anope::Version() << " -- " << Anope::VersionBuildString();
+		Log(LOG_TERMINAL) << Anope::DisplayVersion() << " -- " << Anope::Version() << " -- " << Anope::VersionBuildString();
 		Anope::ReturnValue = EXIT_SUCCESS;
 		return false;
 	}
 
 	if (GetCommandLineArgument("help", 'h'))
 	{
-		Log(LOG_TERMINAL) << "Anope-" << Anope::Version() << " -- " << Anope::VersionBuildString();
-		Log(LOG_TERMINAL) << "Anope IRC Services (https://www.anope.org/)";
+		Log(LOG_TERMINAL) << Anope::DisplayVersion() << " -- " << Anope::Version() << " -- " << Anope::VersionBuildString();
+		Log(LOG_TERMINAL) << "Northfire Services (https://github.com/Northfire/northfire-services), based on Anope (https://www.anope.org/)";
 		Log(LOG_TERMINAL) << "Usage ./" << Anope::ServicesBin << " [options] ...";
 		Log(LOG_TERMINAL) << "-c, --config=filename.conf";
 		Log(LOG_TERMINAL) << "    --confdir=conf file directory";
@@ -449,7 +449,7 @@ bool Anope::Init(int ac, char **av)
 		Anope::LogDir = arg;
 	}
 
-	Log(LOG_TERMINAL) << "Anope " << Anope::Version() << ", " << Anope::VersionBuildString();
+	Log(LOG_TERMINAL) << Anope::DisplayVersion() << " -- " << Anope::Version() << ", " << Anope::VersionBuildString();
 
 	/* Chdir to Anope data directory. */
 	Log() << "Moving to " << Anope::ServicesDir;
@@ -528,7 +528,7 @@ bool Anope::Init(int ac, char **av)
 	}
 
 	/* Announce ourselves to the logfile. */
-	Log() << "Anope " << Anope::Version() << " starting up" << (Anope::Debug || Anope::ReadOnly ? " (options:" : "") << (Anope::Debug ? " debug" : "") << (Anope::ReadOnly ? " readonly" : "") << (Anope::Debug || Anope::ReadOnly ? ")" : "");
+	Log() << Anope::DisplayVersion() << " (" << Anope::Version() << ") starting up" << (Anope::Debug || Anope::ReadOnly ? " (options:" : "") << (Anope::Debug ? " debug" : "") << (Anope::ReadOnly ? " readonly" : "") << (Anope::Debug || Anope::ReadOnly ? ")" : "");
 
 	InitSignals();
 

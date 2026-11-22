@@ -823,6 +823,17 @@ bool Anope::Match(const Anope::string &str, const Anope::string &mask, bool case
 	return m == mask_len;
 }
 
+/* Northfire: constant-time compare. Built by Kyle Bargman */
+bool Anope::TimingSafeEquals(const Anope::string &a, const Anope::string &b)
+{
+	const size_t la = a.length(), lb = b.length();
+	const size_t n = std::max(la, lb);
+	volatile unsigned char diff = la != lb;
+	for (size_t i = 0; i < n; ++i)
+		diff |= (i < la ? a[i] : 0) ^ (i < lb ? b[i] : 0);
+	return !diff;
+}
+
 bool Anope::Encrypt(const Anope::string &src, Anope::string &dest)
 {
 	EventReturn MOD_RESULT;
@@ -933,6 +944,13 @@ Anope::string Anope::LastError()
 		sprintf_s(errmsg, _countof(errmsg), "Error code: %d", errcode);
 	return errmsg;
 #endif
+}
+
+/* Northfire: the version shown to people. Built by Kyle Bargman */
+#define NORTHFIRE_VERSION "1.0"
+Anope::string Anope::DisplayVersion()
+{
+	return "Northfire Services " NORTHFIRE_VERSION " (based on Anope " + Anope::ToString(VERSION_MAJOR) + "." + Anope::ToString(VERSION_MINOR) + "." + Anope::ToString(VERSION_PATCH) + ")";
 }
 
 Anope::string Anope::Version()

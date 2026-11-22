@@ -23,6 +23,9 @@ namespace fs = std::filesystem;
 
 #include "module.h"
 
+#include <cerrno>
+#include <sys/stat.h>
+
 #define ANOPE_DATABASE_VERSION 1
 
 // TODO:
@@ -369,6 +372,17 @@ public:
 	EventReturn OnLoadDatabase() override
 	{
 		auto dbname = GetDatabaseFile(nullptr);
+
+		/* Northfire: no database yet (a new network, or an upgrade from 2.0): let
+		 * another database module (db_flatfile) import, whichever order they were
+		 * loaded in. A database that exists but can't be read still stops here.
+		 * Built by Kyle Bargman */
+		struct stat sb;
+		if (stat(dbname.c_str(), &sb) != 0 && errno == ENOENT)
+		{
+			Log(this) << "No database at " << dbname << " yet; another database module may import one";
+			return EVENT_CONTINUE;
+		}
 
 		auto db = ReadDatabase(dbname);
 		if (!db)

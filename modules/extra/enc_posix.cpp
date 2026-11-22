@@ -41,7 +41,7 @@ public:
 			return;
 
 		Anope::string pass_hash(nc->pass.begin() + pos + 1, nc->pass.end());
-		if (pass_hash.equals_cs(crypt(req->GetPassword().c_str(), pass_hash.c_str())))
+		if (Anope::TimingSafeEquals(pass_hash, crypt(req->GetPassword().c_str(), pass_hash.c_str())))
 		{
 			// If we are NOT the first encryption module we want to re-encrypt
 			// the password with the primary encryption method.

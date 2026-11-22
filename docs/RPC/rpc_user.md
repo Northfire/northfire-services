@@ -18,6 +18,7 @@ Code   | Description
 -32099 | The specified account does not exist.
 -32098 | The specified password is not correct.
 -32097 | The specified account is suspended.
+-32096 | Too many failed attempts from this address or for this account (Northfire nf_authguard).
 
 ### Result
 

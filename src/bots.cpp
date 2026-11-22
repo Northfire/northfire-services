@@ -67,9 +67,8 @@ BotInfo::BotInfo(const Anope::string &nnick, const Anope::string &nuser, const A
 	});
 	ctcps.emplace("VERSION", [](auto *bi, auto *u, const auto &)
 	{
-		auto *enc = ModuleManager::FindFirstOf(ENCRYPTION);
-		IRCD->SendNotice(bi, u->GetUID(), Anope::FormatCTCP("VERSION", Anope::Format("Anope-%s %s -- %s -- %s", Anope::Version().c_str(),
-			Anope::VersionBuildString().c_str(), IRCD->GetProtocolName().c_str(), enc ? enc->name.c_str() : "(none)")));
+		/* Northfire: our name, and nothing about the build or password hashing */
+		IRCD->SendNotice(bi, u->GetUID(), Anope::FormatCTCP("VERSION", Anope::DisplayVersion()));
 	});
 
 	FOREACH_MOD(OnCreateBot, (this));
