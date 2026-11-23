@@ -19,18 +19,20 @@ PASSED = []
 
 
 class Client:
-    def __init__(self, nick, tls=True, sasl=None):
+    def __init__(self, nick, tls=True, sasl=None, cert=None, external=False):
         raw = socket.create_connection((HOST, 6697 if tls else 6667), timeout=10)
         if tls:
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
+            if cert:  # Built by Kyle Bargman: a client certificate (CertFP)
+                ctx.load_cert_chain(cert)
             raw = ctx.wrap_socket(raw)
         self.s = raw
         self.buf = b""
         self.nick = nick
         self.sasl_result = None
-        if sasl:
+        if sasl or external:
             self.send("CAP REQ :sasl")
         self.send(f"NICK {nick}")
         self.send(f"USER {nick.lower()} 0 * :test")
@@ -40,6 +42,14 @@ class Client:
             self.wait(r"^AUTHENTICATE \+")
             blob = base64.b64encode(f"{sasl[0]}\0{sasl[0]}\0{sasl[1]}".encode()).decode()
             self.send(f"AUTHENTICATE {blob}")
+            line = self.wait(r" (903|904|905|906) ")
+            self.sasl_result = line.split()[1]
+            self.send("CAP END")
+        if external:  # Built by Kyle Bargman: SASL EXTERNAL (the certificate is the login)
+            self.wait(r" CAP .* ACK ")
+            self.send("AUTHENTICATE EXTERNAL")
+            self.wait(r"^AUTHENTICATE \+")
+            self.send("AUTHENTICATE +")
             line = self.wait(r" (903|904|905|906) ")
             self.sasl_result = line.split()[1]
             self.send("CAP END")
@@ -581,6 +591,32 @@ def test_forum():
     ok("...and nowhere else")
     a.ns("FORUM Lena", r"https://northfire.dev/forums/u/Lena")
     ok("NickServ FORUM gives the member's page")
+    a.quit()
+
+
+def test_devicecert():
+    """The Northfire app's "Remember this computer": CERT ADD <fingerprint>, then SASL EXTERNAL. Built by Kyle Bargman"""
+    print("remember this computer:")
+    import hashlib, subprocess
+    pem = "/work/device.pem"
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes", "-days", "30",
+                    "-subj", "/CN=Mia laptop", "-keyout", pem, "-out", pem + ".crt"], check=True, capture_output=True)
+    with open(pem, "a") as f:
+        f.write(open(pem + ".crt").read())
+    der = ssl.PEM_cert_to_DER_cert(open(pem + ".crt").read())
+    fp = hashlib.sha256(der).hexdigest()
+    register("Mia", "silver-moon-26")
+    a = Client("Mia", cert=pem)  # the app's next connection uses the new certificate
+    a.ns("IDENTIFY silver-moon-26", r"Password accepted")
+    a.ns("CERT ADD", r"added to")
+    ok("signed in on a connection with the new certificate, CERT ADD adds it")
+    b = Client("MiaPhone", cert=pem, external=True)
+    assert b.sasl_result == "903", b.sasl_result
+    ok("the next connection signs in with SASL EXTERNAL, no password")
+    note = " ".join(a.notices_from("NickServ", 2))
+    assert "certificate" in note and "added" in note, note
+    ok("...and the owner was told a certificate was added")
+    b.quit()
     a.quit()
 
 
