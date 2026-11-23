@@ -202,6 +202,24 @@ jobs:
         ref: ${{ env.IRCTEST_REF }}
         repository: progval/irctest
 
+    # Built by Kyle Bargman, 2026-11-22: irctest reads the version from "anope --version" expecting
+    # "Anope-2.1.x"; Northfire Services says "Northfire Services 1.2 (based on Anope 2.1.27)".
+    - name: Teach irctest the Northfire version text
+      run: |-
+        python3 - <<'PY'
+        p = "irctest/controllers/anope_services.py"
+        s = open(p).read()
+        old = """    (anope, version, *trailing) = output.split()[0].split("-")
+            assert anope == "Anope"
+            return tuple(map(int, version.split(".")))"""
+        new = """    import re
+            m = re.search(r"Anope[- ](\\d+)\\.(\\d+)\\.(\\d+)", output)
+            assert m, output
+            return tuple(map(int, m.groups()))"""
+        assert old in s, "irctest changed: update this step"
+        open(p, "w").write(s.replace(old, new))
+        PY
+
     - name: Install irctest dependencies
       run: |-
         sudo apt-get install --update faketime
