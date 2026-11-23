@@ -172,36 +172,36 @@ def test_authguard():
     op.os("AUTHGUARD CLEAR Bob", r"Cleared")
 
     # 5. SASL failures count too, and a locked SASL attempt fails
-    register("Carol", "carolpass1234")
+    register("Carol", "amber-lake-41")
     for i in range(5):
         c = Client(f"Sasl{i}", sasl=("Carol", "nope"))
         assert c.sasl_result == "904", c.sasl_result
         c.quit()
     ok("SASL PLAIN with a wrong password fails (904)")
-    c = Client("Sasl9", sasl=("Carol", "carolpass1234"))
+    c = Client("Sasl9", sasl=("Carol", "amber-lake-41"))
     assert c.sasl_result == "904", c.sasl_result
     c.quit()
     ok("after five SASL failures, SASL with the right password is refused")
     c = Client("Guest4")
-    c.ns("IDENTIFY Carol carolpass1234", r"Too many failed")
+    c.ns("IDENTIFY Carol amber-lake-41", r"Too many failed")
     ok("...and so is IDENTIFY from the same address")
     c.quit()
     op.os("AUTHGUARD CLEAR 127.0.0.1", r"Cleared")
-    c = Client("Sasl10", sasl=("Carol", "carolpass1234"))
+    c = Client("Sasl10", sasl=("Carol", "amber-lake-41"))
     assert c.sasl_result == "903", c.sasl_result
     ok("after CLEAR (by address), SASL works (903)")
     c.quit()
 
     # 6. Guessing at accounts that don't exist still counts against the address
     #    (checked with Gina, who has never signed in from here)
-    register("Gina", "ginapass1234")
+    register("Gina", "quiet-fern-72")
     c = Client("Guest5")
     for i in range(5):
         c.ns(f"IDENTIFY Nobody{i} whatever", r"isn't registered|not registered")
     c = Client("Guest5b")
-    c.ns("IDENTIFY Gina ginapass1234", r"Too many failed")
+    c.ns("IDENTIFY Gina quiet-fern-72", r"Too many failed")
     ok("guessing at unregistered nicks locks the address too")
-    c.ns("IDENTIFY Carol carolpass1234", r"Password accepted")
+    c.ns("IDENTIFY Carol amber-lake-41", r"Password accepted")
     ok("...but not for accounts that have signed in from it before")
     c.quit()
     op.os("AUTHGUARD CLEAR ALL", r"Cleared|No lockout")
@@ -235,15 +235,15 @@ def test_branding():
 
 def test_tlsonly():
     print("tlsonly:")
-    register("Dave", "davepass1234")
+    register("Dave", "stone-bridge-63")
     c = Client("Plain1", tls=False)
-    c.ns("IDENTIFY Dave davepass1234", r"secure connection|TLS")
+    c.ns("IDENTIFY Dave stone-bridge-63", r"secure connection|TLS")
     ok("IDENTIFY over plain text is refused, with how to fix it")
     c.ns("REGISTER somepass1234 x@test.local", r"secure connection|TLS")
     ok("REGISTER over plain text is refused")
     c.quit()
     c = Client("Secure1")
-    c.ns("IDENTIFY Dave davepass1234", r"Password accepted")
+    c.ns("IDENTIFY Dave stone-bridge-63", r"Password accepted")
     ok("IDENTIFY over TLS works")
     c.quit()
 
@@ -336,13 +336,13 @@ def mail_log():
 def test_security():
     """nf_security: notices for account changes, SESSIONS and SIGNOUT. Built by Kyle Bargman"""
     print("security notices and sessions:")
-    register("Hank", "hankpass1234")
+    register("Hank", "copper-owl-58")
     a = Client("Hank")
-    a.ns("IDENTIFY hankpass1234", r"Password accepted")
+    a.ns("IDENTIFY copper-owl-58", r"Password accepted")
     b = Client("HankPhone")
-    b.ns("IDENTIFY Hank hankpass1234", r"Password accepted")
+    b.ns("IDENTIFY Hank copper-owl-58", r"Password accepted")
 
-    a.ns("SET PASSWORD hanknewpass99", r"changed|set to")
+    a.ns("SET PASSWORD harbor-light-77", r"changed|set to")
     note = " ".join(b.notices_from("NickServ", 3))
     assert "Security notice" in note and "password" in note and "Hank" in note, note
     ok("a password change is announced to the account's other connections")
@@ -502,6 +502,86 @@ def test_twostep_again():
     c.ns(f"CODE {totp(key, int(time.time()) // 30 + 1)}", r"Code accepted")
     ok("...with the same key")
     c.quit()
+
+
+def test_passpolicy():
+    """nf_passpolicy: no weak passwords. Built by Kyle Bargman"""
+    print("password rules:")
+    c = Client("Kira")
+    c.ns("REGISTER password1 kira@test.local", r"most common")
+    ok("REGISTER refuses one of the most common passwords")
+    c.ns("REGISTER kira-2024-xyz kira@test.local", r"nick in it")
+    ok("...and one with the nick in it")
+    c.ns("REGISTER s1x7q kira@test.local", r"too short")
+    ok("...and one that's too short")
+    c.ns("REGISTER violet-river-29 kira@test.local", r"\bregistered\b")
+    ok("a good password registers")
+    c.ns("SET PASSWORD qwertyuiop", r"most common")
+    ok("SET PASSWORD refuses a common one too")
+    c.ns("SET PASSWORD orchid-tower-35", r"changed to|password .*changed|Password for")
+    ok("...and takes a good one")
+    c.quit()
+    st, r = rpc("northfire.checkPassword", ["letmein123"])
+    assert r.get("result", {}).get("ok") is False, r
+    st, r = rpc("northfire.checkPassword", ["violet-river-29", "Kira"])
+    assert r.get("result", {}).get("ok") is True, r
+    ok("the forum can ask the same rules (northfire.checkPassword)")
+
+
+def test_forum():
+    """nf_forum: one-click chat codes and the forum's calls. Built by Kyle Bargman"""
+    print("forum and IRC:")
+    register("Lena", "maple-cloud-84")
+    st, r = rpc("northfire.loginToken", ["lena"])
+    tok = r.get("result", {}).get("token", "")
+    assert tok.startswith("nftoken:") and r["result"].get("account") == "Lena", r
+    ok("the forum gets a one-time login code, with the primary nick")
+    a = Client("Lena", sasl=("Lena", tok))
+    assert a.sasl_result == "903", a.sasl_result
+    ok("SASL with the code signs in")
+    b = Client("LenaTwo")
+    b.ns(f"IDENTIFY Lena {tok}", r"incorrect")
+    ok("a code works only once")
+    st, r = rpc("northfire.loginToken", ["Lena"])
+    b.ns("IDENTIFY Lena " + r["result"]["token"], r"Password accepted")
+    ok("IDENTIFY with a fresh code works too")
+    b.quit()
+    st, r = rpc("northfire.loginToken", ["Jo"])  # Jo has two-step sign-in on (twostep test)
+    j = Client("JoForum", sasl=("Jo", r["result"]["token"]))
+    assert j.sasl_result == "903", j.sasl_result
+    ok("a code counts as the second step (the forum asked for the two-step code)")
+    j.quit()
+    st, r = rpc("northfire.loginToken", ["nobody-here"])
+    assert "error" in r, r
+    ok("no code for an account that doesn't exist")
+
+    st, r = rpc("northfire.account", ["lena"])
+    assert r.get("result", {}).get("account") == "Lena" and r["result"].get("suspended") is False and r["result"].get("online") is True, r
+    ok("northfire.account: primary nick, not suspended, online")
+    st, r = rpc("northfire.notify", ["Lena", "Kira mentioned you in Hello world"])
+    line = a.wait(r"NickServ!.*\[Forums\] Kira mentioned you")
+    ok("northfire.notify reaches the account on IRC")
+    a.send("JOIN #Northfire")
+    a.wait(r" 366 ")
+    st, r = rpc("northfire.online", ["#Northfire"])
+    assert "Lena" in r.get("result", {}).get("nicks", []), r
+    ok("northfire.online lists who's in a public channel")
+    a.send("JOIN #hidden")
+    a.wait(r" 366 .*#hidden")
+    a.send("MODE #hidden +s")
+    time.sleep(1)
+    st, r = rpc("northfire.online", ["#hidden"])
+    assert "error" in r, r
+    ok("...but not a secret one")
+    st, r = rpc("northfire.announce", ["#Northfire", "New topic: Hello world https://northfire.dev/forums/t/1"])
+    a.wait(r"ChanServ!.* PRIVMSG #Northfire :New topic: Hello world")
+    ok("northfire.announce posts in an allowed channel")
+    st, r = rpc("northfire.announce", ["#hidden", "spam"])
+    assert "error" in r, r
+    ok("...and nowhere else")
+    a.ns("FORUM Lena", r"https://northfire.dev/forums/u/Lena")
+    ok("NickServ FORUM gives the member's page")
+    a.quit()
 
 
 if __name__ == "__main__":

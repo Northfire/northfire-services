@@ -948,7 +948,7 @@ Anope::string Anope::LastError()
 }
 
 /* Northfire: the version shown to people. Built by Kyle Bargman */
-#define NORTHFIRE_VERSION "1.1"
+#define NORTHFIRE_VERSION "1.2"
 Anope::string Anope::DisplayVersion()
 {
 	return "Northfire Services " NORTHFIRE_VERSION " (based on Anope " + Anope::ToString(VERSION_MAJOR) + "." + Anope::ToString(VERSION_MINOR) + "." + Anope::ToString(VERSION_PATCH) + ")";

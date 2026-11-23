@@ -658,6 +658,10 @@ public:
 		if (!key)
 			return EVENT_CONTINUE;
 
+		/* Built by Kyle Bargman: a one-time login code from nf_forum (the forum's sign-in had the code) */
+		if (req->IsSecondFactorDone())
+			return EVENT_CONTINUE;
+
 		if (CodesLocked(na->nc))
 		{
 			req->Refuse("second-factor", _("Too many wrong two-step codes. Please wait a while and try again."));

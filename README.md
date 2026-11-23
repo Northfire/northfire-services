@@ -34,6 +34,18 @@ Stock Anope disconnects someone after a few wrong passwords in one session, but 
 - `/msg NickServ SESSIONS` lists every connection signed in to your account, and the addresses you've signed in from lately.
 - `SIGNOUT <nick>` or `SIGNOUT ALL` signs your other connections out. `ALL` also forgets the remembered addresses, so they lose their exemption from the lockouts.
 
+**No weak passwords** ([nf_passpolicy](modules/northfire/nf_passpolicy.cpp))
+
+- `REGISTER`, `SET PASSWORD` and `SASET PASSWORD` refuse a password that's shorter than 8 characters, has the nick in it, or is one of the 100,000 passwords most seen in breaches.
+- The list ships with services (`common-passwords.txt`, the NCSC list via SecLists), so nothing is looked up elsewhere.
+- Websites can ask the same rules with `northfire.checkPassword`; the forum warns members who sign in with a weak one.
+
+**The forums and IRC** ([nf_forum](modules/northfire/nf_forum.cpp))
+
+- **One-click chat.** For a member it has already signed in, the forum asks for a one-time login code (`northfire.loginToken`). The web chat signs in with it as the password (`nftoken:...`, by SASL or IDENTIFY). A code works once, for one account, for 60 seconds, and counts as the second step, because the forum already asked for the two-step code.
+- `northfire.announce` posts a new forum topic in a channel (only the channels in `announce`), `northfire.notify` sends a forum mention to the member (a notice, or a memo when they're away), `northfire.online` lists who's in a public channel, and `northfire.account` gives an account's primary nick and whether it's suspended.
+- `/msg NickServ FORUM [nick]` gives the link to a member's forum page.
+
 **Stronger password storage**
 
 - New passwords are hashed with Argon2id. It's set to 19 MiB and 2 passes, sized for a small server, because hashing runs on services' main thread.
@@ -48,15 +60,15 @@ When turned on, NickServ refuses IDENTIFY, REGISTER, RECOVER, GROUP and SET PASS
 **A locked-down RPC interface for websites**
 
 - The JSON-RPC interface listens on 127.0.0.1 only.
-- It needs a token, and that token may only call `anope.checkCredentials` and `anope.user`.
+- It needs a token, and that token may only call `anope.checkCredentials`, `anope.user` and the `northfire.*` methods above.
 - It reads the visitor's address from `X-Forwarded-For`, so a website's sign-in form is limited per visitor rather than as one address.
 - A locked-out check returns error `-32096`.
 
 **Smaller changes**
 
-- `/VERSION` and CTCP VERSION say "Northfire Services 1.1 (based on Anope 2.1.27)", and no longer reveal the build flags or which password hash is in use.
+- `/VERSION` and CTCP VERSION say "Northfire Services 1.2 (based on Anope 2.1.27)", and no longer reveal the build flags or which password hash is in use.
 - Upgrading from Anope 2.0 works whichever order the database modules are loaded in. `db_json` lets `db_flatfile` import when there's no JSON database yet.
-- Core: new module events `OnIdentifyGate` (refuse a sign-in attempt), `OnIdentifySecondFactor` (ask for a second step once the password is right) and `OnIdentifyResult` (the outcome), for every route. Refusals carry a reason and a message, and `Mail::SendTo` mails any address.
+- Core: a sign-in request can be marked as having passed its second step (`SetSecondFactorDone`), and new module events `OnIdentifyGate` (refuse a sign-in attempt), `OnIdentifySecondFactor` (ask for a second step once the password is right) and `OnIdentifyResult` (the outcome), for every route. Refusals carry a reason and a message, and `Mail::SendTo` mails any address.
 
 ## Install
 

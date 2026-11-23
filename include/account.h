@@ -232,6 +232,9 @@ class CoreExport IdentifyRequest
 	bool password_right = false;
 	Anope::string refusal, refusal_message;
 	Anope::string second_factor;
+	/* Northfire (Kyle Bargman): a module already checked the second step (a one-time login code
+	 * the forum asked for after its own sign-in, which had the two-step code) */
+	bool second_factor_done = false;
 
 	/* Northfire: asks OnIdentifyGate once; true if the attempt is refused. */
 	bool Gate();
@@ -305,6 +308,8 @@ public:
 	 * OnIdentifySecondFactor. Built by Kyle Bargman */
 	void SetSecondFactor(const Anope::string &code) { second_factor = code; }
 	const Anope::string &GetSecondFactor() const { return second_factor; }
+	void SetSecondFactorDone() { second_factor_done = true; }
+	bool IsSecondFactorDone() const { return second_factor_done; }
 
 	static void ModuleUnload(Module *m);
 };
