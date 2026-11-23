@@ -245,7 +245,9 @@ if(WIN32)
   )
 endif()
 
-install(CODE "file(REMOVE_RECURSE \"$ENV{DESTDIR}${ABSOLUTE_MODULE_DIR}\")")
+# Northfire (Kyle Bargman, 2026-11-22): \$ENV{DESTDIR} must be read at install time, not when cmake configures
+# (then it was empty, and a staged install deleted the live install's modules)
+install(CODE "file(REMOVE_RECURSE \"\$ENV{DESTDIR}${ABSOLUTE_MODULE_DIR}\")")
 
 # Only process the CPack section if we have CPack
 if(EXISTS "${CMAKE_ROOT}/Modules/CPack.cmake")
